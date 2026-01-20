@@ -40,6 +40,8 @@ print("=============================================\n")
 
 # Split Data (80% Train, 20% Test)
 X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
+# Random state number is the number assigned for a specific split of testing/training data. Changing it will not change the ratio, the number ensures training and testing data are seperate through all the runs
+
 
 # ==========================================
 # STEP 3: BUILD THE MODEL
@@ -57,6 +59,7 @@ model = tf.keras.Sequential([
     # Output: Risk Score (0.0 to 1.0)
     tf.keras.layers.Dense(1, activation='sigmoid')
 ])
+#These are the neuron layers, more neurons in a layer and more layers should improve performance
 
 model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 
@@ -65,6 +68,10 @@ model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy']
 # ==========================================
 print("Training on 70,000 Samsung Health profiles...")
 model.fit(X_train, y_train, epochs=80, batch_size=64, verbose=1)
+#These values can be modified to tinker with accuracy
+#epochs are the number of times the model goes through the training data
+#batch size gives you the number of records processed before updating weights (accuracy)
+#verbose is just for visual indication of the training process
 
 # ==========================================
 # STEP 5: SAVE FOR ANDROID
@@ -78,7 +85,7 @@ y_pred_proba = model.predict(X_test, verbose=0)
 
 # Adjust threshold to reduce false negatives
 # Default is 0.5, but we decrease it to catch more sick people even if it means more false alarms
-THRESHOLD = 0.4  # Predict sick if model is 35%+ confident
+THRESHOLD = 0.4  # Lower threshold for higher recall and higher for higher precision
 y_pred = (y_pred_proba > THRESHOLD).astype(int).flatten()
 # Confusion Matrix
 tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
