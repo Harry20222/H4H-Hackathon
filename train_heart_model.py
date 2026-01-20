@@ -3,54 +3,102 @@ import numpy as np
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import confusion_matrix, classification_report, precision_score, recall_score, f1_score
 
-# 1. LOAD THE BIG DATASET (70,000 Records)
+# ==========================================
+# STEP 1: LOAD THE DATA
+# ==========================================
+# We use the processed file because it has all 70,000 unique patients.
 df = pd.read_csv('cardiac_failure_processed.csv')
 
-# 2. SELECT FEATURES (Inputs)
-# Note: 'cardio' is the target (0=Healthy, 1=Sick)
-# We drop 'id' and 'Unnamed: 0' because they are just index numbers, not medical data.
+# Drop non-medical columns
+# 'id': Random number
+# 'Unnamed: 0': Row number
+# 'cardio': The answer (Target)
 X = df.drop(['cardio', 'id', 'Unnamed: 0'], axis=1)
 y = df['cardio']
 
-print("Training on 70,000 patients with features:", X.columns.tolist())
+print(f"Loaded {len(df)} patients.")
+print("Features:", X.columns.tolist())
 
-# 3. SPLIT DATA
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-# 4. STANDARDIZE (Crucial for Neural Networks)
+# ==========================================
+# STEP 2: PREPROCESSING (The "Equalizer")
+# ==========================================
+# Problem: 'Age' is 0.6, but 'Height' is 170. 
+# The model will think Height is 300x more important than Age.
+# Solution: StandardScaler forces all columns to be roughly -1 to 1.
 scaler = StandardScaler()
-X_train_scaled = scaler.fit_transform(X_train)
-X_test_scaled = scaler.transform(X_test)
+X_scaled = scaler.fit_transform(X)
 
-# --- COPY TO ANDROID ---
-print("\n=== UPDATED ANDROID VALUES ===")
-print("Use these for: ['age', 'gender', 'height', 'weight', 'ap_hi', 'ap_lo', 'cholesterol', 'gluc', 'smoke', 'alco', 'active']")
-print("MEANS:", scaler.mean_)
-print("SCALES:", scaler.scale_)
-print("==============================\n")
+# !!! IMPORTANT FOR YOUR ANDROID APP !!!
+# You need these numbers to process the User's input on the phone.
+print("\n=== COPY THESE VALUES TO YOUR ANDROID APP ===")
+print("// Feature Order: age, gender, height, weight, ap_hi, ap_lo, cholesterol, gluc, smoke, alco, active")
+print("float[] MEANS = {", ", ".join([f"{x:.4f}f" for x in scaler.mean_]), "};")
+print("float[] SCALES = {", ", ".join([f"{x:.4f}f" for x in scaler.scale_]), "};")
+print("=============================================\n")
 
-# 5. BUILD MODEL
+# Split Data (80% Train, 20% Test)
+X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
+
+# ==========================================
+# STEP 3: BUILD THE MODEL
+# ==========================================
 model = tf.keras.Sequential([
-    tf.keras.layers.Input(shape=(11,)), # We now have 11 Inputs
-    tf.keras.layers.Dense(32, activation='relu'), # More neurons because data is bigger
+    # Input: 11 Features (Age, Gender, Height, Weight, BP_High, BP_Low, Chol, Gluc, Smoke, Alco, Active)
+    tf.keras.layers.Input(shape=(11,)),
+    
+    # Layer 1: 32 Neurons (Judges)
+    tf.keras.layers.Dense(32, activation='relu'),
+    
+    # Layer 2: 16 Neurons
     tf.keras.layers.Dense(16, activation='relu'),
+    
+    # Output: Risk Score (0.0 to 1.0)
     tf.keras.layers.Dense(1, activation='sigmoid')
 ])
 
 model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 
-# 6. TRAIN
-print("Training on massive dataset...")
-model.fit(X_train_scaled, y_train, epochs=20, batch_size=32, verbose=1)
+# ==========================================
+# STEP 4: TRAIN
+# ==========================================
+print("Training on 70,000 Samsung Health profiles...")
+model.fit(X_train, y_train, epochs=20, batch_size=32, verbose=1)
 
-# 7. SAVE
-model.save('samsung_lifestyle_model.h5')
+# ==========================================
+# STEP 5: SAVE FOR ANDROID
+# ==========================================
+# Check accuracy
+loss, accuracy = model.evaluate(X_test, y_test, verbose=0)
+print(f"\nModel Accuracy: {accuracy:.4f}")
+
+# Get detailed metrics
+y_pred_proba = model.predict(X_test, verbose=0)
+y_pred = (y_pred_proba > 0.5).astype(int).flatten()
+
+# Confusion Matrix
+tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
+print(f"\n=== DETAILED METRICS ===")
+print(f"True Positives (Correctly identified sick): {tp}")
+print(f"True Negatives (Correctly identified healthy): {tn}")
+print(f"False Positives (Healthy labeled as sick): {fp}")
+print(f"False Negatives (Sick labeled as healthy): {fn}")
+
+print(f"\n=== PERFORMANCE METRICS ===")
+print(f"Precision: {precision_score(y_test, y_pred):.4f} (of predicted sick, how many actually are?)")
+print(f"Recall: {recall_score(y_test, y_pred):.4f} (of all sick people, how many did we catch?)")
+print(f"F1-Score: {f1_score(y_test, y_pred):.4f}")
+
+print(f"\n=== CLASSIFICATION REPORT ===")
+print(classification_report(y_test, y_pred, target_names=['Healthy', 'Sick']))
+print("========================\n")
 
 # Convert to TFLite
 converter = tf.lite.TFLiteConverter.from_keras_model(model)
 tflite_model = converter.convert()
+
 with open('samsung_lifestyle_model.tflite', 'wb') as f:
     f.write(tflite_model)
 
-print("Saved 'samsung_lifestyle_model.tflite' (The Big One)")
+print("Success! 'samsung_lifestyle_model.tflite' saved.")
