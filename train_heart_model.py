@@ -64,7 +64,7 @@ model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy']
 # STEP 4: TRAIN
 # ==========================================
 print("Training on 70,000 Samsung Health profiles...")
-model.fit(X_train, y_train, epochs=20, batch_size=32, verbose=1)
+model.fit(X_train, y_train, epochs=80, batch_size=64, verbose=1)
 
 # ==========================================
 # STEP 5: SAVE FOR ANDROID
@@ -75,11 +75,14 @@ print(f"\nModel Accuracy: {accuracy:.4f}")
 
 # Get detailed metrics
 y_pred_proba = model.predict(X_test, verbose=0)
-y_pred = (y_pred_proba > 0.5).astype(int).flatten()
 
+# Adjust threshold to reduce false negatives
+# Default is 0.5, but we decrease it to catch more sick people even if it means more false alarms
+THRESHOLD = 0.4  # Predict sick if model is 35%+ confident
+y_pred = (y_pred_proba > THRESHOLD).astype(int).flatten()
 # Confusion Matrix
 tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
-print(f"\n=== DETAILED METRICS ===")
+print(f"\n=== DETAILED METRICS (Threshold: {THRESHOLD}) ===")
 print(f"True Positives (Correctly identified sick): {tp}")
 print(f"True Negatives (Correctly identified healthy): {tn}")
 print(f"False Positives (Healthy labeled as sick): {fp}")
