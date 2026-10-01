@@ -6,6 +6,7 @@ A Python-based health intelligence project focused on early risk detection using
 - an ECG-based arrhythmia detection model for abnormal heart rhythm classification
 
 The repository contains the training scripts, processed datasets, and exported TensorFlow Lite model files used for experimentation and mobile-friendly inference.
+
 Note: 
 - For the demonstration app, I have only created A UI to display the ECG-based arrhythmia model working
 - The app itself is just a showcase of what could be possible, since it uses an unused set of data from MIT-BIH Arrhythmia Database instead of collecting new data
